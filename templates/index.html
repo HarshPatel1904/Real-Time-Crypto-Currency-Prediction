@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f4f6fa">
+  <title>CryptoScope — Market Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body data-interval="{{ interval }}" data-interval-display="{{ interval_display }}">
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="CryptoScope home">
+        <span class="brand-mark"><span></span><span></span><span></span></span>
+        <span class="brand-name">crypto<span>scope</span></span>
+      </a>
+
+      <div class="connection-status">
+        <span class="status-indicator" id="connectionDot"></span>
+        <span id="connectionText">Connecting...</span>
+      </div>
+    </header>
+
+    <main class="dashboard">
+      <section class="intro-row">
+        <div class="intro-copy">
+          <h1>Market <span>insights.</span></h1>
+          <p class="crypto-quote" id="cryptoQuote">In crypto markets, price is what you pay; probability and risk are what you manage.</p>
+        </div>
+        <div class="intro-meta">
+          <div class="meta-item">
+            <span class="meta-label">DATA PROVIDER</span>
+            <strong><span class="provider-mark">B</span> Binance</strong>
+          </div>
+          <div class="meta-divider"></div>
+          <div class="meta-item">
+            <span class="meta-label">INTERVAL</span>
+            <strong id="metaInterval">{{ interval_display }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="selected-header">
+        <div class="selected-asset">
+          <div class="eyebrow">ASSET WORKSPACE</div>
+          <div class="asset-title-row">
+            <h2 id="selectedName">Bitcoin</h2>
+            <span class="pair-badge" id="selectedPair">BTC/USDT</span>
+            <span class="tracking-badge"><span></span> STATIC SNAPSHOT</span>
+          </div>
+        </div>
+        <div class="header-controls">
+          <div class="timeframe-selector" role="group" aria-label="Candle timeframe">
+            {% for tf in supported_intervals %}
+            <button
+              class="tf-btn {% if tf == interval %}active{% endif %}"
+              data-interval="{{ tf }}"
+              type="button"
+              onclick="selectTimeframe('{{ tf }}')"
+            >{{ tf }}</button>
+            {% endfor %}
+          </div>
+          <button class="refresh-btn" type="button" onclick="loadSelectedCoin()" title="Refresh snapshot">
+            Refresh ↻
+          </button>
+          <div class="model-status">
+            <span class="model-status-dot" id="modelDot"></span>
+            <span id="modelStatus">Checking model...</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="metric-grid" aria-label="Market summary">
+        <article class="metric-card">
+          <div class="metric-topline"><span class="metric-label">CURRENT PRICE</span><span class="metric-symbol">01</span></div>
+          <strong class="metric-value" id="currentPrice">--</strong>
+          <div class="metric-foot"><span class="foot-indicator blue"></span> <span id="currentPriceFoot">Latest closed {{ interval_display }} candle</span></div>
+        </article>
+        <article class="metric-card metric-highlight">
+          <div class="metric-topline"><span class="metric-label">PREDICTED PRICE RANGE</span><span class="metric-symbol">02</span></div>
+          <strong class="metric-value range-value" id="predictedPriceRange">--</strong>
+          <div class="metric-foot"><span class="foot-indicator teal"></span> <span id="predictedPriceFoot">Expected next {{ interval_display }} range</span></div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-topline"><span class="metric-label">EXPECTED CHANGE</span><span class="metric-symbol">03</span></div>
+          <strong class="metric-value" id="predictionChange">--</strong>
+          <div class="metric-foot" id="expectedChangeFoot">Midpoint model movement</div>
+        </article>
+        <article class="metric-card">
+          <div class="metric-topline"><span class="metric-label">MARKET DIRECTION</span><span class="metric-symbol">04</span></div>
+          <strong class="metric-value direction-value" id="direction">--</strong>
+          <div class="metric-foot" id="directionConfidence">Predicted upward / downward bias</div>
+        </article>
+      </section>
+
+      <section class="analysis-grid">
+        <article class="panel chart-panel">
+          <div class="panel-heading">
+            <div>
+              <div class="eyebrow">PRICE HISTORY &amp; FORECAST BAND</div>
+              <h3 id="chartTitle">Market performance</h3>
+              <p id="chartSubtitle">BTC/USDT · {{ interval_display }} candles</p>
+            </div>
+            <div class="chart-heading-actions">
+              <div class="chart-status"><span></span> SNAPSHOT</div>
+            </div>
+          </div>
+          <div class="chart-wrap"><canvas id="priceChart"></canvas></div>
+          <div class="chart-footer" id="chartFooter">
+            <span><i class="legend-swatch"></i> MARKET PRICE &amp; PREDICTED BAND</span>
+            <span>BINANCE · {{ interval|upper }}</span>
+            <span>120 CANDLES</span>
+          </div>
+        </article>
+
+        <aside class="asset-selector asset-sidebar panel">
+          <div class="section-heading">
+            <div>
+              <div class="eyebrow">MARKETS</div>
+              <h2>Select an asset</h2>
+              <p>Choose a cryptocurrency to view its market data and range forecast.</p>
+            </div>
+            <span class="market-count">USDT <span class="count-dot"></span> SPOT PAIRS</span>
+          </div>
+
+          <div id="coinGrid" class="coin-grid">
+            {% for symbol,coin in cryptocurrencies.items() %}
+            <button class="coin-card" data-symbol="{{symbol}}" onclick="selectCoin('{{symbol}}')" type="button">
+              <span class="coin-icon {{coin['class']}}">{{coin['icon']}}</span>
+              <span class="coin-info">
+                <strong>{{coin['name']}}</strong>
+                <small>{{coin['symbol']}} / USDT</small>
+              </span>
+              <span class="coin-arrow" aria-hidden="true">↗</span>
+            </button>
+            {% endfor %}
+          </div>
+        </aside>
+      </section>
+
+      <section class="panel verification-panel" aria-label="Prediction verification log">
+        <div class="verification-header">
+          <div>
+            <div class="eyebrow">ACTUAL VS. PREDICTED HISTORY</div>
+            <h3>Prediction verification log</h3>
+          </div>
+          <span class="eval-badge" id="verificationSummary">Loading recent candles...</span>
+        </div>
+
+        <div class="verification-table-wrap">
+          <table class="verification-table">
+            <thead>
+              <tr>
+                <th>Candle Close</th>
+                <th>Prev Close</th>
+                <th>Predicted Range (Low – High)</th>
+                <th>Actual Close</th>
+                <th>Mid Error</th>
+                <th>Direction</th>
+                <th>Range Status</th>
+              </tr>
+            </thead>
+            <tbody id="verificationTableBody">
+              <tr><td colspan="7" class="empty-cell">Loading verification log...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <footer class="footer">
+        <span class="footer-brand">CRYPTOSCOPE <b>·</b> MARKET INTELLIGENCE</span>
+        <span>Experimental model output. Not financial advice.</span>
+      </footer>
+    </main>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
